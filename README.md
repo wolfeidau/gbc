@@ -1,9 +1,9 @@
 # gbc
 
-This library provides a wrapper for net.Listener which returns buffered wrapper around `net.Conn` 
-which enables you to avoid writing another buffered connection wrapper in your service. 
+This library provides a wrapper for net.Listener which returns a buffered `net.Conn` enabling you 
+to avoid writing another buffered connection wrapper in your service. 
 
-It uses sync.Pool to reuse buffers, these are allocated using the default size of `1024`, or the 
+It uses sync.Pool to reuse buffers, which are allocated using the default size of `1024`, or the 
 value provided to `WrapListenerSize`.
 
 # usage
@@ -122,7 +122,6 @@ type Logger interface {
 }
 ```
 Logger used to enable debugging
-
 
 # Author
 

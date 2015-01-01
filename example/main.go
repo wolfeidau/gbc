@@ -19,7 +19,7 @@ func main() {
 
 	gbc.SetLogger(&logger{})
 
-	ln, err := net.Listen("tcp", listenAddr)
+	ln, err := gbc.Listen("tcp", listenAddr)
 
 	if err != nil {
 		// handle error
@@ -27,8 +27,6 @@ func main() {
 	}
 
 	log.Printf("listening on %s", listenAddr)
-
-	ln = gbc.WrapListener(ln)
 
 	for {
 		conn, err := ln.Accept()
@@ -45,7 +43,7 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	// cast the connection
-	bconn := conn.(gbc.BufferedConn)
+	bconn := conn.(*gbc.BufferedConn)
 
 	rw := bconn.ReadWriter()
 

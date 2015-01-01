@@ -15,12 +15,10 @@ import "github.com/wolfeidau/gbc"
 
 func main() {
 	
-	ln, err := net.Listen("tcp", ":8080")
+	ln, err := gbc.Listen("tcp", ":8080")
 	if err != nil {
 		// handle error
 	}
-
-	ln = gbc.WrapListener(ln)
 
 	for {
 		conn, err := ln.Accept()

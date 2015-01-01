@@ -22,6 +22,8 @@ func SetBufferSize(size int) {
 	bufferSize = size
 }
 
+// BeforeAccept callback which is invoked on each buffered connection before being provided to Accept, returning an error
+// will trigger closing of the connection
 type BeforeAccept func(bconn *BufferedConn) error
 
 // BufferedConnListener wraps a net Listener and provides BufferedConn rather than net.Conn via accept callback

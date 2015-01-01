@@ -12,22 +12,35 @@ const (
 	defaultBufferSize = 1024
 )
 
+var (
+	// value used when the next listener is allocated
+	bufferSize = defaultBufferSize
+)
+
+// SetBufferSize assigs the buffer size used when Listen is next called, this must be done before that happens of course
+func SetBufferSize(size int) {
+	bufferSize = size
+}
+
+type BeforeAccept func(bconn *BufferedConn) error
+
 // BufferedConnListener wraps a net Listener and provides BufferedConn rather than net.Conn via accept callback
 type BufferedConnListener struct {
 	net.Listener
 	bufioReaderPool sync.Pool
 	bufioWriterPool sync.Pool
 	bsize           int
+	before          BeforeAccept
 }
 
-// WrapListener builds a new wrapped listener
-func WrapListener(l net.Listener) net.Listener {
-	return WrapListenerSize(l, defaultBufferSize)
-}
-
-// WrapListenerSize builds a new wrapped listener with buffers configured to the specified size
-func WrapListenerSize(l net.Listener, bsize int) net.Listener {
-	return &BufferedConnListener{Listener: l, bsize: bsize}
+// Listen announces on the local network address laddr. The network net must be a stream-oriented
+// network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket". See net.Dial for the syntax of laddr.
+func Listen(network, laddr string) (net.Listener, error) {
+	ln, err := net.Listen(network, laddr)
+	if err != nil {
+		return ln, err
+	}
+	return &BufferedConnListener{Listener: ln, bsize: bufferSize}, nil
 }
 
 // Accept accept
@@ -38,26 +51,37 @@ func (bcl *BufferedConnListener) Accept() (c net.Conn, err error) {
 		return
 	}
 
-	c = newBConn(c, bcl)
+	c = newBufferedConn(c, bcl)
+
+	// cast the connection
+	bconn := c.(*BufferedConn)
+
+	if bcl.before != nil {
+		err = bcl.before(bconn)
+	}
+
+	if err != nil {
+		c.Close()
+		c = nil
+	}
 
 	return
 }
 
-type BufferedConn interface {
-	net.Conn
-	// ReadWriter access the read writer for this connection
-	ReadWriter() *bufio.ReadWriter
+// SetBeforeAccept assign a before accept function which can intercept, use and reject connections
+func (bcl *BufferedConnListener) SetBeforeAccept(before BeforeAccept) {
+	bcl.before = before
 }
 
-// BConn simple buffered connection
-type bConn struct {
+// BufferedConn simple buffered connection
+type BufferedConn struct {
 	net.Conn                       // the underlying net connection
 	bufwr    *bufio.ReadWriter     // buffered reading/writing from rwc
 	bcl      *BufferedConnListener // the listener who is managing the buffer pools
 }
 
-func newBConn(rwc net.Conn, bcl *BufferedConnListener) *bConn {
-	c := &bConn{Conn: rwc, bcl: bcl}
+func newBufferedConn(rwc net.Conn, bcl *BufferedConnListener) *BufferedConn {
+	c := &BufferedConn{Conn: rwc, bcl: bcl}
 
 	br := c.bcl.newBufioReader(c.Conn)
 	bw := c.bcl.newBufioWriter(c.Conn)
@@ -67,16 +91,16 @@ func newBConn(rwc net.Conn, bcl *BufferedConnListener) *bConn {
 }
 
 // Read read from the underlying buffered readwriter to avoid issues
-func (c *bConn) Read(b []byte) (int, error) {
+func (c *BufferedConn) Read(b []byte) (int, error) {
 	return c.bufwr.Read(b)
 }
 
 // ReadWriter access the read writer for this connection
-func (c *bConn) ReadWriter() *bufio.ReadWriter {
+func (c *BufferedConn) ReadWriter() *bufio.ReadWriter {
 	return c.bufwr
 }
 
-func (c *bConn) finalFlush() {
+func (c *BufferedConn) finalFlush() {
 	if c.bufwr != nil {
 		c.bufwr.Flush()
 
@@ -93,7 +117,7 @@ func (c *bConn) finalFlush() {
 }
 
 // Close the connection.
-func (c *bConn) Close() (err error) {
+func (c *BufferedConn) Close() (err error) {
 	log.Debugf("closing %s", c.RemoteAddr())
 	c.finalFlush()
 	if c.Conn != nil {

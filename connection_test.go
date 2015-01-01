@@ -18,7 +18,7 @@ const someTimeout = 10 * time.Second
 func TestBConnCreate(t *testing.T) {
 	for _, tt := range connTests {
 
-		ln, err := net.Listen(tt.net, tt.addr)
+		ln, err := Listen(tt.net, tt.addr)
 		if err != nil {
 			t.Fatalf("Listen failed: %v", err)
 		}
@@ -26,17 +26,15 @@ func TestBConnCreate(t *testing.T) {
 
 		done := make(chan int)
 
-		bcl := WrapListener(ln)
-
 		go func() {
-			c, err := bcl.Accept()
+			c, err := ln.Accept()
 			if err != nil {
 				t.Fatalf("Accept failed: %v", err)
 			}
 			defer c.Close()
 
 			// cast the connection
-			bconn := c.(*BConn)
+			bconn := c.(*BufferedConn)
 
 			// check the read writer is created
 			if bconn.bufwr == nil {

@@ -1,11 +1,15 @@
 # gbc [![GoDoc](https://img.shields.io/badge/godoc-Reference-brightgreen.svg?style=flat)](http://godoc.org/github.com/wolfeidau/gbc)
 
 This library provides a wrapper for net.Listener which returns `net.Conn` with buffered preconfigured enabling you 
-to avoid writing another buffered connection wrapper in your service. It is also enables layered listeners which can 
-share the same connection buffering system.
+to avoid writing another connection wrapper with buffers attached. 
+
+The aim are:
+
+* provide a basis for layered listeners which can share the same buffers
+* provide a callback prior to accept which can vet connections prior to passing onto `Accept`
 
 It uses sync.Pool to reuse buffered readers and writers, which are allocated using the default size of `1024`, or the 
-value provided to `WrapListenerSize`.
+value provided to `SetBufferSize`.
 
 # usage
 

@@ -12,8 +12,8 @@ const (
 	defaultBufferSize = 1024
 )
 
-// BConnListener wraps a net Listener and provides BConn rather than net.Conn via accept callback
-type BConnListener struct {
+// BufferedConnListener wraps a net Listener and provides BufferedConn rather than net.Conn via accept callback
+type BufferedConnListener struct {
 	net.Listener
 	bufioReaderPool sync.Pool
 	bufioWriterPool sync.Pool
@@ -27,11 +27,11 @@ func WrapListener(l net.Listener) net.Listener {
 
 // WrapListenerSize builds a new wrapped listener with buffers configured to the specified size
 func WrapListenerSize(l net.Listener, bsize int) net.Listener {
-	return &BConnListener{Listener: l, bsize: bsize}
+	return &BufferedConnListener{Listener: l, bsize: bsize}
 }
 
 // Accept accept
-func (bcl *BConnListener) Accept() (c net.Conn, err error) {
+func (bcl *BufferedConnListener) Accept() (c net.Conn, err error) {
 	c, err = bcl.Listener.Accept()
 
 	if err != nil {
@@ -43,15 +43,21 @@ func (bcl *BConnListener) Accept() (c net.Conn, err error) {
 	return
 }
 
-// BConn simple buffered connection
-type BConn struct {
-	net.Conn                   // the underlying net connection
-	bufwr    *bufio.ReadWriter // buffered reading/writing from rwc
-	bcl      *BConnListener    // the listener who is managing the buffer pools
+type BufferedConn interface {
+	net.Conn
+	// ReadWriter access the read writer for this connection
+	ReadWriter() *bufio.ReadWriter
 }
 
-func newBConn(rwc net.Conn, bcl *BConnListener) *BConn {
-	c := &BConn{Conn: rwc, bcl: bcl}
+// BConn simple buffered connection
+type bConn struct {
+	net.Conn                       // the underlying net connection
+	bufwr    *bufio.ReadWriter     // buffered reading/writing from rwc
+	bcl      *BufferedConnListener // the listener who is managing the buffer pools
+}
+
+func newBConn(rwc net.Conn, bcl *BufferedConnListener) *bConn {
+	c := &bConn{Conn: rwc, bcl: bcl}
 
 	br := c.bcl.newBufioReader(c.Conn)
 	bw := c.bcl.newBufioWriter(c.Conn)
@@ -60,12 +66,17 @@ func newBConn(rwc net.Conn, bcl *BConnListener) *BConn {
 	return c
 }
 
+// Read read from the underlying buffered readwriter to avoid issues
+func (c *bConn) Read(b []byte) (int, error) {
+	return c.bufwr.Read(b)
+}
+
 // ReadWriter access the read writer for this connection
-func (c *BConn) ReadWriter() *bufio.ReadWriter {
+func (c *bConn) ReadWriter() *bufio.ReadWriter {
 	return c.bufwr
 }
 
-func (c *BConn) finalFlush() {
+func (c *bConn) finalFlush() {
 	if c.bufwr != nil {
 		c.bufwr.Flush()
 
@@ -82,7 +93,7 @@ func (c *BConn) finalFlush() {
 }
 
 // Close the connection.
-func (c *BConn) Close() (err error) {
+func (c *bConn) Close() (err error) {
 	log.Debugf("closing %s", c.RemoteAddr())
 	c.finalFlush()
 	if c.Conn != nil {
@@ -92,7 +103,7 @@ func (c *BConn) Close() (err error) {
 	return
 }
 
-func (bcl *BConnListener) newBufioReader(r io.Reader) *bufio.Reader {
+func (bcl *BufferedConnListener) newBufioReader(r io.Reader) *bufio.Reader {
 	if v := bcl.bufioReaderPool.Get(); v != nil {
 		br := v.(*bufio.Reader)
 		br.Reset(r)
@@ -101,12 +112,12 @@ func (bcl *BConnListener) newBufioReader(r io.Reader) *bufio.Reader {
 	return bufio.NewReaderSize(r, bcl.bsize)
 }
 
-func (bcl *BConnListener) putBufioReader(br *bufio.Reader) {
+func (bcl *BufferedConnListener) putBufioReader(br *bufio.Reader) {
 	br.Reset(nil)
 	bcl.bufioReaderPool.Put(br)
 }
 
-func (bcl *BConnListener) newBufioWriter(w io.Writer) *bufio.Writer {
+func (bcl *BufferedConnListener) newBufioWriter(w io.Writer) *bufio.Writer {
 	if v := bcl.bufioWriterPool.Get(); v != nil {
 		bw := v.(*bufio.Writer)
 		bw.Reset(w)
@@ -115,7 +126,7 @@ func (bcl *BConnListener) newBufioWriter(w io.Writer) *bufio.Writer {
 	return bufio.NewWriterSize(w, bcl.bsize)
 }
 
-func (bcl *BConnListener) putBufioWriter(bw *bufio.Writer) {
+func (bcl *BufferedConnListener) putBufioWriter(bw *bufio.Writer) {
 	bw.Reset(nil)
 	bcl.bufioWriterPool.Put(bw)
 }

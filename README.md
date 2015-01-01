@@ -1,7 +1,8 @@
 # gbc [![GoDoc](https://img.shields.io/badge/godoc-Reference-brightgreen.svg?style=flat)](http://godoc.org/github.com/wolfeidau/gbc)
 
-This library provides a wrapper for net.Listener which returns a buffered `net.Conn` enabling you 
-to avoid writing another buffered connection wrapper in your service. 
+This library provides a wrapper for net.Listener which returns `net.Conn` with buffered preconfigured enabling you 
+to avoid writing another buffered connection wrapper in your service. It is also enables layered listeners which can 
+share the same connection buffering system.
 
 It uses sync.Pool to reuse buffered readers and writers, which are allocated using the default size of `1024`, or the 
 value provided to `WrapListenerSize`.
@@ -41,7 +42,7 @@ func handleConnection(conn net.Conn) {
 	// get the read writer for this buffered connection
 	rw := bconn.ReadWriter()
 
-	// use the rw to do peak/flush ect
+	// use rw to do peak/flush ect
 	...
 
 }

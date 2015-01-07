@@ -37,10 +37,10 @@ type BufferedConnListener struct {
 
 // Listen announces on the local network address laddr. The network net must be a stream-oriented
 // network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket". See net.Dial for the syntax of laddr.
-func Listen(network, laddr string) (net.Listener, error) {
+func Listen(network, laddr string) (*BufferedConnListener, error) {
 	ln, err := net.Listen(network, laddr)
 	if err != nil {
-		return ln, err
+		return nil, err
 	}
 	return &BufferedConnListener{Listener: ln, bsize: bufferSize}, nil
 }
@@ -121,6 +121,7 @@ func (c *BufferedConn) finalFlush() {
 // Close the connection.
 func (c *BufferedConn) Close() (err error) {
 	log.Debugf("closing %s", c.RemoteAddr())
+	//	panic("woops")
 	c.finalFlush()
 	if c.Conn != nil {
 		err = c.Conn.Close()

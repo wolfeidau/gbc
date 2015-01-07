@@ -14,7 +14,11 @@ value provided to `SetBufferSize`.
 # usage
 
 ```go
-import "github.com/wolfeidau/gbc"
+import (
+	"log"
+
+	"github.com/wolfeidau/gbc"
+)
 
 
 func main() {
@@ -24,8 +28,14 @@ func main() {
 		// handle error
 	}
 
+	// wrap the buffered listener in the proxy header listener
+	// see http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt 
+	// this is used by haproxy and Elastic Load Balancer to pass through 
+	// source and destination ip addresses to TCP listeners behind these services.
+	pln := &gbc.ProxyListener{ln}
+
 	for {
-		conn, err := ln.Accept()
+		conn, err := pln.Accept()
 		if err != nil {
 			// handle error
 		}
@@ -37,6 +47,9 @@ func main() {
 func handleConnection(conn net.Conn) {
 
 	defer conn.Close() // this will flush if needed
+
+	// print the remote address
+	log.Printf("remote addr: %s", conn.RemoteAddr().String())
 
 	// cast the connection to the buffered connection
 	bconn := conn.(*gbc.BConn)
@@ -50,6 +63,17 @@ func handleConnection(conn net.Conn) {
 }
 
 ```
+
+# References
+
+* [Proxy Protocol](http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt)
+* [go-proxyproto](https://github.com/armon/go-proxyproto) borrowed the initial proxy protocol parsing from this library!
+* [Enabling Proxy Protocol on ELB](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/enable-proxy-protocol.html)
+* [Elastic Load Balancing adds Support for Proxy Protocol](https://aws.amazon.com/blogs/aws/elastic-load-balancing-adds-support-for-proxy-protocol/)
+
+# Sponsor
+
+This project was made possible by [Ninja Blocks](http://ninjablocks.com).
 
 # License
 

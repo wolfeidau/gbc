@@ -6,7 +6,7 @@ to avoid writing another connection wrapper with buffers attached.
 The aim are:
 
 * provide a basis for layered listeners which can share the same buffers
-* provide a callback prior to accept which can vet connections prior to passing onto `Accept`
+* provide some wrappers for the buffered listener which perform various functions prior to calling `Accept`, such as vetting connections, or read preamble such as the proxy protocol example.
 
 It uses sync.Pool to reuse buffered readers and writers, which are allocated using the default size of `1024`, or the 
 value provided to `SetBufferSize`.

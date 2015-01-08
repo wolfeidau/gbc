@@ -66,6 +66,7 @@ func handleConnection(conn net.Conn) {
 
 # References
 
+* [golang HTTP Server Connection Struct](https://github.com/golang/go/blob/master/src/net/http/server.go#L115-L131)
 * [Proxy Protocol](http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt)
 * [go-proxyproto](https://github.com/armon/go-proxyproto) borrowed the initial proxy protocol parsing from this library!
 * [Enabling Proxy Protocol on ELB](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/enable-proxy-protocol.html)

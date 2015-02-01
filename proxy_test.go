@@ -32,12 +32,14 @@ func TestPConnCreate(t *testing.T) {
 
 		pln := &ProxyListener{ln}
 
-		done := make(chan int)
+		errchan := make(chan error)
+		donechan := make(chan bool)
 
 		go func() {
 			c, err := pln.Accept()
 			if err != nil {
-				t.Fatalf("Accept failed: %v", err)
+				errchan <- err
+				return
 			}
 			defer c.Close()
 
@@ -55,16 +57,17 @@ func TestPConnCreate(t *testing.T) {
 
 			rb := make([]byte, 128)
 			if _, err := pconn.ReadWriter().Read(rb); err != nil {
-				t.Fatalf("Conn.Read failed: %v", err)
+				errchan <- err
+				return
 			}
 
-			done <- 1
+			donechan <- true
 
 		}()
 
 		c, err := net.Dial(tt.net, ln.Addr().String())
 		if err != nil {
-			t.Fatalf("Dial failed: %v", err)
+
 		}
 		defer c.Close()
 
@@ -80,6 +83,12 @@ func TestPConnCreate(t *testing.T) {
 			t.Fatalf("Conn.Write failed: %v", err)
 		}
 
-		<-done
+		select {
+		case done := <-donechan:
+			log.Debugf("done: %v", done)
+		case err := <-errchan:
+			t.Fatalf("test failed: %v", err)
+		}
+
 	}
 }
